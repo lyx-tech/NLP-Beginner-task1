@@ -15,7 +15,7 @@ class Config:
     # 数据集的路径
     DATA_PATH = r"D:/000personal/dataset/sentiment-analysis-on-movie-reviews/train.csv"
     # 模型保存的路径
-    SAVE_DIR = r"output"
+    SAVE_DIR = r"D:/VSWorkSpace/Python/git-task1/output"
 
     # 特征配置
     N_GRAM = 2  #  词袋的大小
@@ -25,7 +25,7 @@ class Config:
     # 模型配置
     LEARNING_RATE = [0.1,1,10]  # 学习率
     EPOCHS = 10  # 训练轮数
-    LOSS_FUNCTIONS = ["cross_entropy"]  # 损失函数
+    LOSS_FUNCTIONS = ["cross_entropy","hinge","focal"]  # 损失函数
     STRATEGIES = ["mini","sgd","batch"]  # 优化策略
     NGRAM_RANGE = [2,3]  # N-gram范围
     MAX_FEATURES = 2000  # 最大特征数
@@ -178,13 +178,16 @@ class Softmax:
             dscores[np.arange(num_samples), y_batch] = -dscores.sum(axis=1)
             dscores /= num_samples
         elif loss_fn == "focal":
-            pt = probs[np.arange(num_samples), y_batch]
+            # 安全计算pt值（防止数值不稳定）
+            pt = np.clip(probs[np.arange(num_samples), y_batch], 1e-8, 1 - 1e-8)
             alpha, gamma = 0.25, 2.0
-            focal_weight = alpha * (1 - pt) ** gamma * (gamma * pt * np.log(pt + 1e-8) + pt - 1) / (pt * (1 - pt))
+            # 更稳定的focal_weight计算
+            log_pt = np.log(pt)
+            focal_weight = alpha * (1 - pt) ** gamma * (gamma * log_pt + 1)
+            # 梯度计算
             dscores = probs.copy()
             dscores[np.arange(num_samples), y_batch] -= 1
-            dscores *= focal_weight.reshape(-1, 1)
-            dscores /= num_samples
+            dscores *= focal_weight.reshape(-1, 1) / num_samples
         
         # 计算权重和偏置的梯度
         dW = X_batch.T.dot(dscores)
@@ -436,11 +439,11 @@ if __name__ == "__main__":
 
 '''
 Best Combination:
-feature           Bag-of-Words
-learning_rate              1.0
-loss             cross_entropy
-strategy                  mini
-train_acc             0.605072
-test_acc              0.587851
-Name: 3, dtype: object
+feature          Bag-of-Words
+learning_rate             1.0
+loss                    hinge
+strategy                 mini
+train_acc            0.617551
+test_acc             0.598712
+Name: 12, dtype: object
 '''
